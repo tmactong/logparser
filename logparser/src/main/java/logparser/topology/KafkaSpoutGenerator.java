@@ -1,4 +1,5 @@
-package logparser.spout;
+package logparser.topology;
+
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.storm.kafka.spout.KafkaSpoutConfig;
 import org.apache.storm.kafka.spout.ByTopicRecordTranslator;
