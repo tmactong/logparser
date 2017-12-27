@@ -1,9 +1,11 @@
 package logparser.topology;
 
+import java.util.concurrent.TimeUnit;
 import org.apache.storm.Config;
 import org.apache.storm.StormSubmitter;
 import org.apache.storm.generated.StormTopology;
 import org.apache.storm.topology.TopologyBuilder;
+import org.apache.storm.topology.base.BaseWindowedBolt;
 
 public class LogParserTopology {
 
@@ -21,6 +23,7 @@ public class LogParserTopology {
         final TopologyBuilder tp = new TopologyBuilder();
         tp.setSpout("KafkaSpout", new KafkaSpoutGenerator(), 10);
         tp.setBolt("LogParserBolt", new LogParserBolt(), 10).localOrShuffleGrouping("KafkaSpout");
+        tp.setBolt("WindowGroupedBolt", new WindowGroupedBolt().withWindow(new BaseWindowedBolt.Duration(20, TimeUnit.SECONDS), new BaseWindowedBolt.Duration(20, TimeUnit.SECONDS)), 10).localOrShuffleGrouping("LogParserBolt");
         return tp.createTopology();
     }
 

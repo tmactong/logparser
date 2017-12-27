@@ -3,6 +3,8 @@ package logparser.topology;
 import java.util.Map;
 
 import org.apache.storm.tuple.Tuple;
+import org.apache.storm.tuple.Values;
+import org.apache.storm.tuple.Fields;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.task.TopologyContext;
@@ -15,6 +17,7 @@ import java.util.logging.SimpleFormatter;
 import java.util.logging.Level;
 //import org.slf4j.Logger;
 //import org.slf4j.LoggerFactory;
+//Temporary Import Modules
 
 
 public class LogParserBolt extends BaseRichBolt {
@@ -45,13 +48,14 @@ public class LogParserBolt extends BaseRichBolt {
     
     @Override
     public void execute(Tuple input) {
-        String[] array = input.getString(0).split("+");
-        LOG.info("TaskId: {0}, Pid: {1}, CPU: {2}, Memory:{3}", array);
+        String[] array = input.getString(0).split("\\+");
+        LOG.info(()-> String.format("TaskId: %s, Pid: %s, CPU: %s, Memory: %s", array[0], array[1], array[2], array[3]));
+        _collector.emit(new Values(array[0], Integer.parseInt(array[1]), Integer.parseInt(array[2]), Integer.parseInt(array[3])));
         _collector.ack(input);
     }
     
     @Override
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
-
+        declarer.declare(new Fields("TaskId", "PartitionId", "CPU", "Memory"));
     }
 }
