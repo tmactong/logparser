@@ -9,11 +9,14 @@ import org.apache.storm.windowing.TupleWindow;
 import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.topology.base.BaseWindowedBolt;
 
+import java.lang.System;
 import java.lang.Integer;
 import java.lang.Float;
+import java.lang.String;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
+import org.apache.commons.lang.StringUtils;
 import java.util.Map;
 import java.util.HashMap;
 import java.io.IOException;
@@ -26,7 +29,7 @@ public class WindowGroupedBolt extends BaseWindowedBolt {
 
     protected static final Logger LOG = getLogger();
     private OutputCollector collector;
-    final float standardRatio = 1.1f;
+    final float standardRatio = 1.2f;
 
     @Override
     public void prepare(Map topoConf, TopologyContext context, OutputCollector collector) {
@@ -40,7 +43,6 @@ public class WindowGroupedBolt extends BaseWindowedBolt {
         long cpu_avg = 0;
         long memory_avg = 0;
         Map<Integer, List<Integer>> PartitionResource = new HashMap<Integer, List<Integer>>();
-        //Map<Integer, Object> PartitionResource = new HashMap<Integer, Object>();
         List<Integer> abnormalPartitions = new ArrayList<Integer>();
     }
 
@@ -64,12 +66,13 @@ public class WindowGroupedBolt extends BaseWindowedBolt {
     public void execute(TupleWindow inputWindow) {
         Map<String, State> TaskResource = new HashMap<String, State>();
         List<Tuple> tuplesInWindow = inputWindow.get();
+        long timestamp = System.currentTimeMillis() / 1000;
         if (tuplesInWindow.size() > 0) {
             for (Tuple tuple : tuplesInWindow){
-                String TaskId = tuple.getString(0);
-                int PartitionId = tuple.getInteger(1);
-                int cpu = tuple.getInteger(2);
-                int memory = tuple.getInteger(3);
+                String TaskId = tuple.getStringByField("TaskId");
+                int PartitionId = tuple.getIntegerByField("PartitionId");
+                int cpu = tuple.getIntegerByField("CPU");
+                int memory = tuple.getIntegerByField("Memory");
                 if(!TaskResource.containsKey(TaskId)) {
                     TaskResource.put(TaskId, new State());
                 }
@@ -77,7 +80,6 @@ public class WindowGroupedBolt extends BaseWindowedBolt {
                 TaskState.count += 1;
                 TaskState.cpu_sum += cpu;
                 TaskState.memory_sum += memory;
-                //TaskState.PartitionResource.put(PartitionId, new int[] {cpu, memory});
                 TaskState.PartitionResource.put(PartitionId, new ArrayList<Integer>(Arrays.asList(cpu, memory)));
             }
             for (Map.Entry<String, State> Task : TaskResource.entrySet()) {
@@ -92,14 +94,15 @@ public class WindowGroupedBolt extends BaseWindowedBolt {
                         taskState.abnormalPartitions.add(Partition.getKey());
                     }
                 }
-                LOG.info(()-> String.format("Task: %s, Count: %d, Cpu sum: %d, Memory sum: %d, Cpu avg: %d, Memory avg %d, Map: %s, abnormal partitions: %s",  Task.getKey(), taskState.count, taskState.cpu_sum, taskState.memory_sum, taskState.cpu_avg, taskState.memory_avg, taskState.PartitionResource.toString(), taskState.abnormalPartitions.toString()));
-                collector.emit(new Values(Task.getKey(), taskState.cpu_sum, taskState.memory_sum, taskState.cpu_avg, taskState.memory_avg));
+                String abnormalPartitionsString = StringUtils.join(taskState.abnormalPartitions, ",");
+                LOG.info(()-> String.format("Timestamp: %d, Task: %s, Count: %d, Cpu sum: %d, Memory sum: %d, Cpu avg: %d, Memory avg %d, Map: %s, abnormal partitions: %s",  timestamp, Task.getKey(), taskState.count, taskState.cpu_sum, taskState.memory_sum, taskState.cpu_avg, taskState.memory_avg, taskState.PartitionResource.toString(), taskState.abnormalPartitions.toString()));
+                collector.emit(new Values(timestamp, Task.getKey(), taskState.cpu_sum, taskState.memory_sum, taskState.cpu_avg, taskState.memory_avg, abnormalPartitionsString));
             }
         }
     }
 
     @Override
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
-        declarer.declare(new Fields("task", "cpu_sum", "mem_sum", "cpu_avg", "mem_avg"));
+        declarer.declare(new Fields("timestamp", "task", "cpu_sum", "mem_sum", "cpu_avg", "mem_avg", "abn_pars"));
     }
 }
